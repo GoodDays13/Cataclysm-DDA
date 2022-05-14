@@ -1056,6 +1056,47 @@ bool advanced_inventory::move_all_items()
         if( dpane.get_area() == AIM_WORN ) {
             popup( _( "You look at the items, then your clothes, and scratch your head…" ) );
             return false;
+        } else if( spane.get_area() == AIM_CONTAINER_L || spane.get_area() == AIM_CONTAINER_R ) {
+            item_location container = sarea.get_container();
+            std::vector<item_location> target_items;
+            std::vector<item_location> target_items_favorites;
+            std::vector<int> quantities;
+            std::list<const item *> targets = container.get_item()->all_items_ptr();
+            auto stack_begin = targets.begin();
+            auto stack_end = targets.end();
+
+            // Stash the destination
+            const tripoint relative_destination = darea.off;
+
+            // Push item_locations and item counts for all items at placement
+            for( auto it = stack_begin; it != stack_end; ++it ) {
+                item thing = **it;
+                if( spane.is_filtered( **it ) ) {
+                    continue;
+                }
+                if( thing.is_favorite ) {
+                    target_items_favorites.emplace_back( container, &thing );
+                } else {
+                    target_items.emplace_back( container, &thing );
+                }
+                // quantity of 0 means move all
+                quantities.push_back( 0 );
+            }
+
+            // move all the favorite items only if there are no other items.
+            if( target_items.empty() ) {
+                target_items = target_items_favorites;
+            }
+
+            do_return_entry();
+
+            player_character.assign_activity( player_activity( move_items_activity_actor(
+                                                  target_items,
+                                                  quantities,
+                                                  dpane.in_vehicle(),
+                                                  relative_destination
+                                              ) ) );
+
         } else if( dpane.get_area() == AIM_INVENTORY ) {
             player_character.activity.coords.push_back( player_character.pos() );
             std::vector<item_location> target_items;
